@@ -1,0 +1,21 @@
+[Unit]
+Description=VLC Stream Client
+After=network.target
+
+[Service]
+User=rts
+Group=rts
+Type=forking
+Environment="stream_source=http://ip.address:port/"
+Environment="stream_user=username"
+Environment="stream_password=password"
+Environment="DISPLAY=:0.0"
+Environment="XDG_RUNTIME_DIR=/run/user/1000"
+ExecStart=/usr/bin/screen -dmS hls_proxy  /home/rts/dev/python/vlc-player/venv/bin/python /home/rts/dev/python/vlc-player/hls_proxy.py
+ExecStop=/usr/bin/screen -S hls_proxy -X quit
+Restart=always
+RestartSec=3
+Nice=-10
+
+[Install]
+WantedBy=multi-user.target
