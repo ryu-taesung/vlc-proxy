@@ -6,6 +6,7 @@ After=network.target
 User=rts
 Group=rts
 Type=forking
+Environment="PYTHONWARNINGS=ignore:Unverified HTTPS request"
 Environment="stream_source=http://ip.address:port/"
 Environment="stream_user=username"
 Environment="stream_password=password"

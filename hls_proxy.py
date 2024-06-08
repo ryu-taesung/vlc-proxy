@@ -4,6 +4,16 @@ import requests
 import os
 from flask import Flask, request, Response, jsonify
 import subprocess
+import signal
+
+def sigchld_handler(signum, frame):
+    print("VLC subprocess exited.")
+    global vlc_process
+    if vlc_process is not None:
+        vlc_process.terminate()
+        vlc_process = None
+
+signal.signal(signal.SIGCHLD, sigchld_handler)
 
 # Flask configuration
 class Config:
@@ -17,7 +27,7 @@ app.config.from_object(Config)
 
 # Start a session
 session = requests.Session()
-response = session.post(app.config['LOGIN_URL'], data={'user': app.config['STREAM_USER'], 'password': app.config['STREAM_PASSWORD']})
+response = session.post(app.config['LOGIN_URL'], data={'user': app.config['STREAM_USER'], 'password': app.config['STREAM_PASSWORD']}, verify=False)
 
 # Check if login was successful
 if response.ok:
@@ -30,7 +40,7 @@ else:
 @app.route('/<path:url>', methods=['GET'])
 def proxy(url):
     try:
-        resp = requests.get(f"{app.config['SERVER_SOURCE']}/{url}", cookies=cookies, stream=True)
+        resp = requests.get(f"{app.config['SERVER_SOURCE']}/{url}", cookies=cookies, stream=True, verify=False)
         return Response(resp.iter_content(chunk_size=10*1024), content_type=resp.headers['Content-Type'])
     except requests.RequestException as e:
         return jsonify({'error': str(e)}), 404
@@ -38,11 +48,10 @@ def proxy(url):
 @app.route('/hls.m3u8', methods=['GET'])
 def default():
     try:
-        resp = requests.get(f"{app.config['SERVER_SOURCE']}/cur-src", cookies=cookies)
+        resp = requests.get(f"{app.config['SERVER_SOURCE']}/cur-src", cookies=cookies, verify=False)
         stream_code = resp.text
         stream_url = f"{app.config['SERVER_SOURCE']}/{stream_code}.m3u8"
-        print(f"stream_url={stream_url}")
-        resp = requests.get(stream_url, cookies=cookies, stream=True)
+        resp = requests.get(stream_url, verify=False, cookies=cookies, stream=True)
         return Response(resp.iter_content(chunk_size=10*1024), content_type=resp.headers['Content-Type'])
     except requests.RequestException as e:
         return jsonify({'error': str(e)}), 404
@@ -55,14 +64,8 @@ def start_vlc():
     global vlc_process
     if vlc_process is None:
         vlc_process = subprocess.Popen([
-            'cvlc', 
-            '--http-reconnect', 
-            '--repeat', 
-            '--loop', 
-           # '--network-caching=1000',   # Increase network caching to 1000 ms
-           # '--file-caching=1000',      # Increase file caching to 1000 ms
-           # '--live-caching=1000',      # Increase live caching to 1000 ms
-            'http://localhost:5003/hls.m3u8'
+            os.path.join(os.path.dirname(__file__), 'venv', 'bin', 'python'), 
+            os.path.join(os.path.dirname(__file__),'hls_player.py'),
         ])
         return jsonify({'status': 'VLC started'}), 200
     else:
