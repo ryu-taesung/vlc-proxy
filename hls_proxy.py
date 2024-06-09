@@ -137,6 +137,30 @@ def get_volume():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/bt/on', methods=['GET'])
+def bt_on():
+  commands = ['power on', 'agent on']
+  for command in commands:
+    process_command = f"echo '{command}' | bluetoothctl"
+    time.sleep(2)
+    try:
+      result = subprocess.run(process_command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+      return jsonify({'status': 'success', 'output': result.stdout}), 200
+    except subprocess.CalledProcessError as e:
+      return jsonify({'status': 'error', 'message': str(e), 'stderr': e.stderr}), 500
+
+@app.route('/bt/off', methods=['GET'])
+def bt_off():
+  commands = ['disconnect', 'agent off', 'power off']
+  for command in commands:
+    process_command = f"echo '{command}' | bluetoothctl"
+    time.sleep(2)
+    try:
+      result = subprocess.run(process_command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+      return jsonify({'status': 'success', 'output': result.stdout}), 200
+    except subprocess.CalledProcessError as e:
+      return jsonify({'status': 'error', 'message': str(e), 'stderr': e.stderr}), 500
+
 @app.route('/main', methods=['GET'])
 def main_route():
     return send_from_directory('static', 'index.html')

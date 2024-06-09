@@ -29,6 +29,16 @@
                     fetchVolume();  // Update volume display after change
                 });
             });
+
+            document.getElementById("bton").addEventListener("click", function() {
+                fetch('/bt/on').then(response => response.json()).then(data => {
+                });
+            });
+
+            document.getElementById("btoff").addEventListener("click", function() {
+                fetch('/bt/off').then(response => response.json()).then(data => {
+                });
+            });
         });
 
         function fetchVolume() {
@@ -50,6 +60,11 @@
         <button id="stop">Stop VLC</button>
         <button id="volup">Volume Up</button>
         <button id="voldown">Volume Down</button>
+    </div>
+    <br>
+    <div>
+        <button id="bton">Bluetooth On</button>
+        <button id="btoff">Bluetooth Off</button>
     </div>
     <div id="currentVolume">Current Volume: Loading...</div>
 </body>
