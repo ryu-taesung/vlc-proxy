@@ -81,5 +81,30 @@ def stop_vlc():
     else:
         return jsonify({'status': 'VLC not running'}), 200
 
+@app.route('/vlc/volup', methods=['GET'])
+def volup():
+    amixer_process = subprocess.Popen([
+        '/usr/bin/amixer',
+        '-D',
+        'pulse',
+        'sset',
+        'Master',
+        '5%+', 
+    ])
+    return jsonify({'status': 'Volume Increased'}), 200
+
+@app.route('/vlc/voldown', methods=['GET'])
+def voldown():
+    amixer_process = subprocess.Popen([
+        '/usr/bin/amixer',
+        '-D',
+        'pulse',
+        'sset',
+        'Master',
+        '5%-', 
+    ])
+    return jsonify({'status': 'Volume Decreased'}), 200
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0',port=5003)

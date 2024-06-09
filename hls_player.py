@@ -86,6 +86,7 @@ def restart(event, data):
 
 start(None, None)
 
+# Give the player some time to begin before we check if it's playing
 time.sleep(3)
 
 cur_pos = 0
