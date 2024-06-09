@@ -2,16 +2,22 @@ import vlc
 import time
 import requests
 import os
-from flask import Flask, request, Response, jsonify
+from flask import Flask, request, Response, jsonify, send_from_directory
 import subprocess
 import signal
 
 def sigchld_handler(signum, frame):
-    print("VLC subprocess exited.")
     global vlc_process
     if vlc_process is not None:
-        vlc_process.terminate()
-        vlc_process = None
+    # Check if the exited process is the VLC process
+        try:
+            pid, _ = os.waitpid(vlc_process.pid, os.WNOHANG)
+            if pid == vlc_process.pid:
+                print("VLC subprocess exited.")
+                vlc_process.terminate()
+                vlc_process = None
+        except ChildProcessError:
+            pass  # No child processes
 
 signal.signal(signal.SIGCHLD, sigchld_handler)
 
@@ -81,7 +87,7 @@ def stop_vlc():
     else:
         return jsonify({'status': 'VLC not running'}), 200
 
-@app.route('/vlc/volup', methods=['GET'])
+@app.route('/alsa/volup', methods=['GET'])
 def volup():
     amixer_process = subprocess.Popen([
         '/usr/bin/amixer',
@@ -93,7 +99,7 @@ def volup():
     ])
     return jsonify({'status': 'Volume Increased'}), 200
 
-@app.route('/vlc/voldown', methods=['GET'])
+@app.route('/alsa/voldown', methods=['GET'])
 def voldown():
     amixer_process = subprocess.Popen([
         '/usr/bin/amixer',
@@ -105,6 +111,35 @@ def voldown():
     ])
     return jsonify({'status': 'Volume Decreased'}), 200
 
+@app.route('/alsa/vol', methods=['GET'])
+def get_volume():
+    try:
+        # Run the amixer command and capture its output
+        amixer_process = subprocess.Popen(
+            ['/usr/bin/amixer', '-D', 'pulse', 'sget', 'Master'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        output, errors = amixer_process.communicate()
 
+        if amixer_process.returncode != 0:
+            return jsonify({'error': errors.decode()}), 500
+
+        # Process the output to find the volume percentage
+        for line in output.decode().split('\n'):
+            if 'Left:' in line:
+                # Assuming the volume information is formatted like '[XX%]'
+                volume = line.split('[')[1].split(']')[0]
+                return jsonify({'volume': volume}), 200
+
+        return jsonify({'error': 'Volume info not found'}), 404
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/main', methods=['GET'])
+def main_route():
+    return send_from_directory('static', 'index.html')
+  
 if __name__ == '__main__':
     app.run(host='0.0.0.0',port=5003)

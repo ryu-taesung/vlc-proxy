@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Control Panel</title>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            fetchVolume();
+
+            document.getElementById("start").addEventListener("click", function() {
+                fetch('/vlc/start').then(response => response.json()).then(data => alert(data.status));
+            });
+
+            document.getElementById("stop").addEventListener("click", function() {
+                fetch('/vlc/stop').then(response => response.json()).then(data => alert(data.status));
+            });
+
+            document.getElementById("volup").addEventListener("click", function() {
+                fetch('/alsa/volup').then(response => response.json()).then(data => {
+                    //alert(data.status);
+                    fetchVolume();  // Update volume display after change
+                });
+            });
+
+            document.getElementById("voldown").addEventListener("click", function() {
+                fetch('/alsa/voldown').then(response => response.json()).then(data => {
+                    //alert(data.status);
+                    fetchVolume();  // Update volume display after change
+                });
+            });
+        });
+
+        function fetchVolume() {
+            fetch('/alsa/vol').then(response => response.json())
+            .then(data => {
+                if (data.volume) {
+                    document.getElementById("currentVolume").innerText = 'Current Volume: ' + data.volume;
+                } else {
+                    alert(data.error);
+                }
+            });
+        }
+    </script>
+</head>
+<body>
+    <h1>Media Control Panel</h1>
+    <div>
+        <button id="start">Start VLC</button>
+        <button id="stop">Stop VLC</button>
+        <button id="volup">Volume Up</button>
+        <button id="voldown">Volume Down</button>
+    </div>
+    <div id="currentVolume">Current Volume: Loading...</div>
+</body>
+</html>
