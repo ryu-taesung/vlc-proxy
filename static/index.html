@@ -4,6 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Media Control Panel</title>
+    <style>
+          #output {
+            white-space: pre-wrap; /* Maintains whitespace formatting. */
+            background: #f4f4f4;
+            padding: 10px;
+            border: 1px solid #ddd;
+            margin-top: 20px;
+            height: 300px;
+            overflow-y: auto;
+        }
+        button {
+            cursor: pointer;
+            padding: 10px 20px;
+            margin-top: 10px;
+            background-color: #4C50AF;
+            color: white; 
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+    </style>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             fetchVolume();
@@ -51,10 +72,56 @@
                 }
             });
         }
+
+        let isScanning = false;
+        let eventSource;
+
+        function updateButton() {
+            const btn = document.getElementById('scanBtn');
+            if (isScanning) {
+                btn.textContent = 'Stop Scan';
+            } else {
+                btn.textContent = 'Start Scan';
+            }
+        }
+
+        function handleScanData(event) {
+            const outputDiv = document.getElementById('output');
+            // Append new lines of output
+            outputDiv.innerHTML += event.data;
+        }
+
+        function startScan() {
+            // Start the scan and handle the stream
+            eventSource = new EventSource("/bt/scan");
+            eventSource.onmessage = handleScanData;
+            eventSource.onerror = function() {
+                stopScan(); // Stop scan on error
+            };
+            isScanning = true;
+            updateButton();
+        }
+
+        function stopScan() {
+            if (eventSource) {
+                eventSource.close();
+            }
+            isScanning = false;
+            updateButton();
+        }
+
+        function toggleScan() {
+            if (isScanning) {
+                stopScan();
+            } else {
+                startScan();
+            }
+        }
     </script>
 </head>
 <body>
     <h1>Media Control Panel</h1>
+    <div id="currentVolume">Current Volume: Loading...</div>
     <div>
         <button id="start">Start VLC</button>
         <button id="stop">Stop VLC</button>
@@ -64,8 +131,8 @@
     <br>
     <div>
         <button id="bton">Bluetooth On</button>
+        <button id="scanBtn" onclick="toggleScan()">Start Scan</button>
         <button id="btoff">Bluetooth Off</button>
-    </div>
-    <div id="currentVolume">Current Volume: Loading...</div>
+    <div id="output"></div>
 </body>
 </html>

@@ -2,9 +2,12 @@ import vlc
 import time
 import requests
 import os
-from flask import Flask, request, Response, jsonify, send_from_directory
+from flask import Flask, request, Response, jsonify, send_from_directory, stream_with_context
 import subprocess
 import signal
+import asyncio
+import re
+import threading
 
 def sigchld_handler(signum, frame):
     global vlc_process
@@ -87,6 +90,44 @@ def stop_vlc():
     else:
         return jsonify({'status': 'VLC not running'}), 200
 
+timer = None
+sleep_set_at = None
+sleep_expires_at = None
+def delayed_stop(seconds):
+    global sleep_set_at
+    global sleep_expires_at
+    """Function to stop VLC after a delay."""
+    def timer_action():
+        print("Stopping for sleep timer.")
+        sleep_set_at = None
+        sleep_expires_at = None
+        with app.app_context():  # Pushing an application context
+            stop_vlc()
+
+    global timer
+    if timer is not None:
+        timer.cancel()  # Cancel existing timer if there is one
+
+    timer = threading.Timer(seconds, timer_action)
+    timer.start()
+
+@app.route('/sleep/<int:minutes>', methods=['GET'])
+def set_sleep_timer(minutes):
+    global sleep_set_at, sleep_expires_at
+    sleep_set_at = time.time()
+    seconds = minutes * 60
+    sleep_expires_at = sleep_set_at + seconds
+    delayed_stop(seconds)
+    return jsonify({'status': f'Sleep timer set for {minutes} minutes'}), 200
+
+@app.route('/sleep', methods=['GET'])
+def get_sleep():
+    global sleep_set_at, sleep_expires_at
+    if sleep_set_at is not None:
+        return jsonify({'sleep_set_at':sleep_set_at,'sleep_expires_in':sleep_expires_at-time.time()})
+    else:
+        return jsonify(['no sleep'])
+
 @app.route('/alsa/volup', methods=['GET'])
 def volup():
     amixer_process = subprocess.Popen([
@@ -160,6 +201,84 @@ def bt_off():
       return jsonify({'status': 'success', 'output': result.stdout}), 200
     except subprocess.CalledProcessError as e:
       return jsonify({'status': 'error', 'message': str(e), 'stderr': e.stderr}), 500
+
+# def process_output(output):
+#     """Process the output from bluetoothctl to turn device IDs into clickable links."""
+#     processed_lines = []
+#     for line in output.splitlines():
+#         # Example match: Device 00:11:22:33:44:55 My Bluetooth Device
+#         matches = re.findall(r"Device (\w\w:\w\w:\w\w:\w\w:\w\w:\w\w) ", line)
+#         if match:
+#             print('match')
+#             device_id = match.group(1)
+#             device_name = match.group(2)
+#             # Create a clickable link
+#             clickable_link = f'<a href="/bt/connect/{device_id}">{device_id} - {device_name}</a>'
+#             processed_lines.append(clickable_link)
+#         else:
+#             processed_lines.append(line)
+#     return "<br>".join(processed_lines)
+# 
+# @app.route('/bt/scan', methods=['GET'])
+# async def bt_scan():
+#     command = "timeout 20 bluetoothctl --timeout 18 scan on"
+#     process = await asyncio.create_subprocess_shell(
+#         command,
+#         stdout=asyncio.subprocess.PIPE,
+#         stderr=asyncio.subprocess.PIPE
+#     )
+# 
+#     try:
+#         stdout, stderr = await process.communicate()
+#         if process.returncode == 0:
+#             processed_output = process_output(stdout.decode())
+#             return jsonify({'status': 'success', 'output': processed_output}), 200
+#         else:
+#             return jsonify({'status': 'error', 'message': stderr.decode()}), 500
+#     except asyncio.TimeoutError:
+#         return jsonify({'status': 'timeout', 'message': 'Bluetooth scan timed out'}), 408
+# 
+
+def create_clickable_links(line):
+    clean_line = re.sub(r'\x1B[@-_][0-?]*[ -/]*[@-~]', '', line)  # Strip ANSI codes
+    match = re.search(r'Device ([0-9A-F:]{17}) (.+)', clean_line)
+    if match:
+        device_id = match.group(1)
+        device_name = match.group(2)
+        return f'data: <a href="/bt/connect/{device_id}">{device_id} - {device_name}</a><br>\n\n'
+    return f'data: {clean_line}<br>\n\n'
+
+def scan_bluetooth(timeout=20):
+    """Start bluetoothctl, turn on scanning, and manage output."""
+    cmd = ["bluetoothctl"]
+    with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1) as process:
+        # Turn on the agent and start scanning
+        process.stdin.write("agent on\n")
+        process.stdin.write("scan on\n")
+        process.stdin.flush()
+
+        # Stop scan after a timeout
+        def stop_scan():
+            time.sleep(timeout)
+            process.stdin.write("scan off\n")
+            process.stdin.write("exit\n")
+            process.stdin.flush()
+
+        timer = threading.Timer(timeout, stop_scan)
+        timer.start()
+
+        # Process output
+        try:
+            for line in iter(process.stdout.readline, ''):
+                yield create_clickable_links(line.strip())
+        finally:
+            timer.cancel()
+            process.stdin.write("exit\n")
+            process.stdin.flush()
+
+@app.route('/bt/scan', methods=['GET'])
+def bt_scan():
+    return Response(stream_with_context(scan_bluetooth()), mimetype='text/event-stream')
 
 @app.route('/main', methods=['GET'])
 def main_route():
