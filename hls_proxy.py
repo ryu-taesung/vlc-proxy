@@ -94,10 +94,9 @@ timer = None
 sleep_set_at = None
 sleep_expires_at = None
 def delayed_stop(seconds):
-    global sleep_set_at
-    global sleep_expires_at
     """Function to stop VLC after a delay."""
     def timer_action():
+        global sleep_set_a, sleep_expires_at
         print("Stopping for sleep timer.")
         sleep_set_at = None
         sleep_expires_at = None
@@ -123,7 +122,7 @@ def set_sleep_timer(minutes):
 @app.route('/sleep', methods=['GET'])
 def get_sleep():
     global sleep_set_at, sleep_expires_at
-    if sleep_set_at is not None:
+    if sleep_set_at is not None and sleep_expires_at is not None:
         return jsonify({'sleep_set_at':sleep_set_at,'sleep_expires_in':sleep_expires_at-time.time()})
     else:
         return jsonify(['no sleep'])
