@@ -181,62 +181,45 @@ def get_volume():
 def bt_on():
   commands = ['power on', 'agent on']
   for command in commands:
-    process_command = f"echo '{command}' | bluetoothctl"
-    time.sleep(2)
+    process_command = f"echo '{command}' | /usr/bin/bluetoothctl"
+    time.sleep(1)
     try:
       result = subprocess.run(process_command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
       return jsonify({'status': 'success', 'output': result.stdout}), 200
     except subprocess.CalledProcessError as e:
       return jsonify({'status': 'error', 'message': str(e), 'stderr': e.stderr}), 500
+
+def get_connected_devices():
+    list_command = "echo 'devices' | /usr/bin/bluetoothctl"
+    result = subprocess.run(list_command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    devices = []
+    for line in result.stdout.split('\n'):
+        if 'Device' in line:
+            parts = line.split(' ')
+            if len(parts) > 1:
+                devices.append(parts[1])
+    return devices
 
 @app.route('/bt/off', methods=['GET'])
 def bt_off():
-  commands = ['disconnect', 'agent off', 'power off']
-  for command in commands:
-    process_command = f"echo '{command}' | bluetoothctl"
-    time.sleep(2)
-    try:
-      result = subprocess.run(process_command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-      return jsonify({'status': 'success', 'output': result.stdout}), 200
-    except subprocess.CalledProcessError as e:
-      return jsonify({'status': 'error', 'message': str(e), 'stderr': e.stderr}), 500
+    # First, disconnect all connected devices
+    connected_devices = get_connected_devices()
+    for device in connected_devices:
+        disconnect_command = f"echo 'disconnect {device}' | /usr/bin/bluetoothctl"
+        subprocess.run(disconnect_command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        time.sleep(1)
 
-# def process_output(output):
-#     """Process the output from bluetoothctl to turn device IDs into clickable links."""
-#     processed_lines = []
-#     for line in output.splitlines():
-#         # Example match: Device 00:11:22:33:44:55 My Bluetooth Device
-#         matches = re.findall(r"Device (\w\w:\w\w:\w\w:\w\w:\w\w:\w\w) ", line)
-#         if match:
-#             print('match')
-#             device_id = match.group(1)
-#             device_name = match.group(2)
-#             # Create a clickable link
-#             clickable_link = f'<a href="/bt/connect/{device_id}">{device_id} - {device_name}</a>'
-#             processed_lines.append(clickable_link)
-#         else:
-#             processed_lines.append(line)
-#     return "<br>".join(processed_lines)
-# 
-# @app.route('/bt/scan', methods=['GET'])
-# async def bt_scan():
-#     command = "timeout 20 bluetoothctl --timeout 18 scan on"
-#     process = await asyncio.create_subprocess_shell(
-#         command,
-#         stdout=asyncio.subprocess.PIPE,
-#         stderr=asyncio.subprocess.PIPE
-#     )
-# 
-#     try:
-#         stdout, stderr = await process.communicate()
-#         if process.returncode == 0:
-#             processed_output = process_output(stdout.decode())
-#             return jsonify({'status': 'success', 'output': processed_output}), 200
-#         else:
-#             return jsonify({'status': 'error', 'message': stderr.decode()}), 500
-#     except asyncio.TimeoutError:
-#         return jsonify({'status': 'timeout', 'message': 'Bluetooth scan timed out'}), 408
-# 
+    # Then, turn off agent and power
+    commands = ['agent off', 'power off']
+    for command in commands:
+        process_command = f"echo '{command}' | /usr/bin/bluetoothctl"
+        time.sleep(1)
+        try:
+            result = subprocess.run(process_command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as e:
+            return jsonify({'status': 'error', 'message': str(e), 'stderr': e.stderr}), 500
+
+    return jsonify({'status': 'success', 'message': 'Bluetooth turned off'}), 200
 
 def create_clickable_links(line):
     clean_line = re.sub(r'\x1B[@-_][0-?]*[ -/]*[@-~]', '', line)  # Strip ANSI codes
@@ -278,6 +261,26 @@ def scan_bluetooth(timeout=20):
 @app.route('/bt/scan', methods=['GET'])
 def bt_scan():
     return Response(stream_with_context(scan_bluetooth()), mimetype='text/event-stream')
+
+##################################################################################################################
+# change these and others to POST with some kind of token from the client
+@app.route('/system/shutdown', methods=['GET'])
+def system_shutdown():
+    system_shutdown = subprocess.Popen([
+        '/usr/bin/sudo',
+        '/usr/sbin/shutdown',
+        '-h',
+        '0',
+    ])
+    return jsonify({'status': 'Success'}), 200
+
+@app.route('/system/reboot', methods=['GET'])
+def system_reboot():
+    system_reboot = subprocess.Popen([
+        '/usr/bin/sudo',
+        '/usr/sbin/reboot',
+    ])
+    return jsonify({'status': 'Success'}), 200
 
 @app.route('/main', methods=['GET'])
 def main_route():
