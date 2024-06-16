@@ -93,6 +93,7 @@
             const outputDiv = document.getElementById('output');
             // Append new lines of output
             outputDiv.innerHTML += event.data;
+            outputDiv.scrollTop = outputDiv.scrollHeight;
         }
 
         function startScan() {
@@ -129,6 +130,8 @@
     <div>
         <button id="start">Start VLC</button>
         <button id="stop">Stop VLC</button>
+    </div>
+    <div>
         <button id="volup">Volume Up</button>
         <button id="voldown">Volume Down</button>
     </div>
