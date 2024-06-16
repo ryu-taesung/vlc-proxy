@@ -262,10 +262,14 @@ def scan_bluetooth(timeout=20):
 def bt_scan():
     return Response(stream_with_context(scan_bluetooth()), mimetype='text/event-stream')
 
-##################################################################################################################
-# change these and others to POST with some kind of token from the client
-@app.route('/system/shutdown', methods=['GET'])
+@app.route('/system/shutdown', methods=['POST'])
 def system_shutdown():
+    print('/system/shutdown called')
+    token = request.form.get('token')
+    if not token or token != "SHUTDOWN":
+        print('/system/shutdown POST failed authentication')
+        return jsonify({"error": "Forbidden"}), 403
+    print('shutting down system')
     system_shutdown = subprocess.Popen([
         '/usr/bin/sudo',
         '/usr/sbin/shutdown',
@@ -274,8 +278,14 @@ def system_shutdown():
     ])
     return jsonify({'status': 'Success'}), 200
 
-@app.route('/system/reboot', methods=['GET'])
+@app.route('/system/reboot', methods=['POST'])
 def system_reboot():
+    print('/system/reboot called')
+    token = request.form.get('token')
+    if not token or token != "REBOOT":
+        print('/system/reboot POST failed authentication')
+        return jsonify({'error': "Forbidden"}), 403
+    print('rebooting system')
     system_reboot = subprocess.Popen([
         '/usr/bin/sudo',
         '/usr/sbin/reboot',

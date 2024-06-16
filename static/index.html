@@ -31,39 +31,88 @@
     </style>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            fetchVolume();
+          fetchVolume();
 
-            document.getElementById("start").addEventListener("click", function() {
-                fetch('/vlc/start').then(response => response.json()).then(data => alert(data.status));
-            });
+          document.getElementById("start").addEventListener("click", function() {
+            fetch('/vlc/start').then(response => response.json()).then(data => alert(data.status));
+          });
 
-            document.getElementById("stop").addEventListener("click", function() {
-                fetch('/vlc/stop').then(response => response.json()).then(data => alert(data.status));
-            });
+          document.getElementById("stop").addEventListener("click", function() {
+            fetch('/vlc/stop').then(response => response.json()).then(data => alert(data.status));
+          });
 
-            document.getElementById("volup").addEventListener("click", function() {
-                fetch('/alsa/volup').then(response => response.json()).then(data => {
-                    //alert(data.status);
-                    fetchVolume();  // Update volume display after change
-                });
+          document.getElementById("volup").addEventListener("click", function() {
+            fetch('/alsa/volup').then(response => response.json()).then(data => {
+              //alert(data.status);
+              fetchVolume();  // Update volume display after change
             });
+          });
 
-            document.getElementById("voldown").addEventListener("click", function() {
-                fetch('/alsa/voldown').then(response => response.json()).then(data => {
-                    //alert(data.status);
-                    fetchVolume();  // Update volume display after change
-                });
+          document.getElementById("voldown").addEventListener("click", function() {
+            fetch('/alsa/voldown').then(response => response.json()).then(data => {
+              //alert(data.status);
+              fetchVolume();  // Update volume display after change
             });
+          });
 
-            document.getElementById("bton").addEventListener("click", function() {
-                fetch('/bt/on').then(response => response.json()).then(data => {
-                });
+          document.getElementById("bton").addEventListener("click", function() {
+            fetch('/bt/on').then(response => response.json()).then(data => {
             });
+          });
 
-            document.getElementById("btoff").addEventListener("click", function() {
-                fetch('/bt/off').then(response => response.json()).then(data => {
-                });
+          document.getElementById("btoff").addEventListener("click", function() {
+            fetch('/bt/off').then(response => response.json()).then(data => {
             });
+          });
+          document.getElementById("shutdown").addEventListener('click', ()=>{
+            const token = 'SHUTDOWN';
+            if(!confirm('Shutdown the system?')){
+              return;
+            }
+            fetch(`/system/shutdown`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: new URLSearchParams({
+                'token': token
+              })
+            })
+            .then(response => response.json())
+            .then(data => {
+              if (data.error) {
+                alert(`Error: ${data.error}`);
+              } else {
+                alert(data.status);
+              }
+            })
+            .catch(error => console.error('Error:', error));
+          });
+
+          document.getElementById("reboot").addEventListener('click', ()=>{
+            const token = 'REBOOT';
+            if(!confirm('Reboot the system?')){
+              return;
+            }
+            fetch(`/system/reboot`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: new URLSearchParams({
+                'token': token
+              })
+            })
+            .then(response => response.json())
+            .then(data => {
+              if (data.error) {
+                alert(`Error: ${data.error}`);
+              } else {
+                alert(data.status);
+              }
+            })
+            .catch(error => console.error('Error:', error));
+          });
         });
 
         function fetchVolume() {
@@ -141,5 +190,9 @@
         <button id="scanBtn" onclick="toggleScan()">Start Scan</button>
         <button id="btoff">Bluetooth Off</button>
     <div id="output"></div>
+    <div>
+        <button id="shutdown">Shutdown</button>
+        <button id="reboot">Reboot</button>
+    </div>
 </body>
 </html>
