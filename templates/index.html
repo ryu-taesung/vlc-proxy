@@ -171,11 +171,33 @@
                 startScan();
             }
         }
+
+        function fetchLoadAverages() {
+          fetch('/system/lavg')
+            .then(response => response.json())
+            .then(data => {
+              document.getElementById('loadAverages').innerHTML =
+                '[' + data['1_min'].toFixed(2) + ', ' +
+                data['5_min'].toFixed(2) + ', ' +
+                data['15_min'].toFixed(2) + ']';
+              })
+            .catch(error => {
+              console.error('Error fetching load averages:', error);
+              document.getElementById('loadAverages').innerHTML = 'Failed to load data.';
+              });
+        }
+
+        setInterval(fetchLoadAverages, 10000);
+
+        fetchLoadAverages();
     </script>
 </head>
 <body>
     <h1>{{ hostname }} - VLC Control</h1>
-    <div id="currentVolume">Current Volume: Loading...</div>
+    <div id="systemInfo">
+      <div id="loadAverages"></div>
+      <div id="currentVolume">Current Volume: Loading...</div>
+    </div>
     <div>
         <button id="start">Start VLC</button>
         <button id="stop">Stop VLC</button>

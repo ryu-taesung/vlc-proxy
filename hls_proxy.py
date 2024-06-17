@@ -293,6 +293,15 @@ def system_reboot():
     ])
     return jsonify({'status': 'Success'}), 200
 
+@app.route('/system/lavg', methods=['GET'])
+def lavg():
+    load_avg = os.getloadavg()
+    return jsonify({
+        '1_min': round(load_avg[0],2),
+        '5_min': round(load_avg[1],2),
+        '15_min': round(load_avg[2],2)
+    })
+
 @app.route('/main', methods=['GET'])
 def main_route():
     return render_template("index.html", hostname=os.uname()[1])
