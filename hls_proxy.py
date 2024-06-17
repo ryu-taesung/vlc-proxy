@@ -3,6 +3,7 @@ import time
 import requests
 import os
 from flask import Flask, request, Response, jsonify, send_from_directory, stream_with_context
+from flask import render_template
 import subprocess
 import signal
 import asyncio
@@ -294,7 +295,7 @@ def system_reboot():
 
 @app.route('/main', methods=['GET'])
 def main_route():
-    return send_from_directory('static', 'index.html')
+    return render_template("index.html", hostname=os.uname()[1])
   
 if __name__ == '__main__':
     app.run(host='0.0.0.0',port=5003)
