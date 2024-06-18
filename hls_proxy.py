@@ -302,6 +302,15 @@ def lavg():
         '15_min': round(load_avg[2],2)
     })
 
+@app.route('/get-title', methods=['GET'])
+def get_title():
+    try:
+        resp = requests.get(f"{app.config['SERVER_SOURCE']}/window-title", cookies=cookies, verify=False)
+        window_title = resp.text
+        return jsonify({'data': str(window_title)}), 200
+    except requests.RequestException as e:
+        return jsonify({'error': str(e)}), 404
+
 @app.route('/main', methods=['GET'])
 def main_route():
     return render_template("index.html", hostname=os.uname()[1])
