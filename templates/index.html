@@ -8,6 +8,7 @@
         body {
             background-color: #000;
             color: #777;
+            font-family: monospace;
         }
         #output {
             white-space: pre-wrap; /* Maintains whitespace formatting. */
@@ -34,6 +35,17 @@
         }
     </style>
     <script>
+        'use strict';
+        const stripAnsiControlCodes = (input) => {
+          return input.replace(/\x1B[@-_][0-?]*[ -/]*[@-~]/g,'')
+        }
+
+        function handleBTStream(event) {
+          const outputDiv = document.getElementById('output');
+          outputDiv.innerHTML += stripAnsiControlCodes(event.data) + '<br>';
+          outputDiv.scrollTop = outputDiv.scrollHeight;
+        }
+        
         document.addEventListener("DOMContentLoaded", function() {
           fetchVolume();
 
@@ -60,13 +72,47 @@
           });
 
           document.getElementById("bton").addEventListener("click", function() {
-            fetch('/bt/on').then(response => response.json()).then(data => {
+            //fetch('/bt/on').then(response => response.json()).then(data => {
+            //outputDiv = document.querySelector("#output");
+            //outputDiv.innerText += stripAnsiControlCodes(data.message) + '\n';
+            //outputDiv.scrollTop = outputDiv.scrollHeight;
+            //});
+            //stopScan();
+            let evn = new EventSource("/bt/on");
+            evn.addEventListener('stream_ended', ()=>{
+              console.log('bton stream_ended event');
+              evn.close();
             });
+            evn.onmessage = handleBTStream;
+            evn.onerror = function() {
+                console.log('onerror event');
+            };
+            //updateButton();
           });
 
           document.getElementById("btoff").addEventListener("click", function() {
-            fetch('/bt/off').then(response => response.json()).then(data => {
+//            fetch('/bt/off').then(response => response.json()).then(data => {
+//            outputDiv = document.querySelector("#output");
+//            outputDiv.innerText += stripAnsiControlCodes(data.message) + '\n';
+//            outputDiv.scrollTop = outputDiv.scrollHeight;
+//            });
+            //stopScan();
+            let evn = new EventSource("/bt/off");
+            evn.addEventListener('stream_ended', ()=>{
+              console.log('btoff stream_ended event');
+              evn.close();
             });
+            evn.onmessage = handleBTStream;
+            evn.onerror = ()=>{
+              console.log('onerror event');
+            };
+            //setTimeout(()=>{
+            //  console.log('timeout');
+            //  if(evn){
+            //    evn.close();
+            //    console.log('closed event');
+            //  }
+            //}, 10000);
           });
           document.getElementById("shutdown").addEventListener('click', ()=>{
             const token = 'SHUTDOWN';
@@ -145,7 +191,6 @@
 
         function handleScanData(event) {
             const outputDiv = document.getElementById('output');
-            // Append new lines of output
             outputDiv.innerHTML += event.data;
             outputDiv.scrollTop = outputDiv.scrollHeight;
         }
@@ -153,8 +198,14 @@
         function startScan() {
             // Start the scan and handle the stream
             eventSource = new EventSource("/bt/scan");
+            eventSource.addEventListener('stream_ended', ()=>{
+              console.log('scan stream_ended event');
+              eventSource.close();
+              stopScan();
+            });
             eventSource.onmessage = handleScanData;
             eventSource.onerror = function() {
+                console.log('onerror event');
                 stopScan(); // Stop scan on error
             };
             isScanning = true;
@@ -203,6 +254,19 @@
         };
         updateTitle();
         setInterval(updateTitle, 30000);
+
+        const getBTStatus = async ()=> {
+          const resp = await fetch('/bt/status');
+          const result = await resp.json();
+          const powered_on = result.message;
+          return powered_on;
+        };
+
+        const testit = async () => {
+          let powered = await getBTStatus();
+          console.log(powered);
+        }
+        testit();
 
     </script>
 </head>

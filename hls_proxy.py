@@ -178,24 +178,60 @@ def get_volume():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/bt/status', methods=['GET'])
+def bt_status():
+    commands = ['show']
+    out_msg = ''
+    cmd = ['bluetoothctl']
+    try:
+        with subprocess.Popen(cmd, text=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as process:
+           process.stdin.write(f"{commands[0]}\n")
+           process.stdin.flush()
+           output = process.stdout.readline()
+           output_ticks = 0
+           while output and output_ticks < 10:
+              out_msg += output
+              output = process.stdout.readline()
+              output_ticks += 1
+           process.stdin.write("exit\n")
+           process.stdin.flush()
+        message = "Powered On" if 'powered: yes' in out_msg.lower() else "Powered Off" 
+    except subprocess.CalledProcessError as e:
+        return jsonify({'status': 'error', 'message': str(e), 'stderr': e.stderr}), 500
+    return jsonify({'status': 'success', 'message': message})
+
 @app.route('/bt/on', methods=['GET'])
 def bt_on():
-  commands = ['power on', 'agent on']
-  for command in commands:
-    process_command = f"echo '{command}' | /usr/bin/bluetoothctl"
-    time.sleep(1)
-    try:
-      result = subprocess.run(process_command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-      return jsonify({'status': 'success', 'output': result.stdout}), 200
-    except subprocess.CalledProcessError as e:
-      return jsonify({'status': 'error', 'message': str(e), 'stderr': e.stderr}), 500
+    def generate():
+        commands = ['power on', 'agent on']
+        cmd = ["bluetoothctl"]
+        with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as process:
+            for command in commands:
+                output_ticks = 0
+                process.stdin.write(f"{command}\n")
+                process.stdin.flush()
+                time.sleep(1)  # Wait for the command to take effect
+
+                output = process.stdout.readline()
+                while output and output_ticks < 5:
+                    yield f"data: bton {output.strip()}\n\n"
+                    if "Agent is already registered" in output:
+                      break
+                    output = process.stdout.readline()
+                    output_ticks += 1
+
+            yield 'event: stream_ended\ndata:\n\n'
+            process.stdin.write("exit\n")
+            process.stdin.flush()
+
+    return Response(stream_with_context(generate()), content_type='text/event-stream')
 
 def get_connected_devices():
     list_command = "echo 'devices' | /usr/bin/bluetoothctl"
     result = subprocess.run(list_command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     devices = []
     for line in result.stdout.split('\n'):
-        if 'Device' in line:
+        if 'Device' in line and '-' not in line: # ignore phantom Device lines that have dashes
             parts = line.split(' ')
             if len(parts) > 1:
                 devices.append(parts[1])
@@ -203,24 +239,45 @@ def get_connected_devices():
 
 @app.route('/bt/off', methods=['GET'])
 def bt_off():
-    # First, disconnect all connected devices
-    connected_devices = get_connected_devices()
-    for device in connected_devices:
-        disconnect_command = f"echo 'disconnect {device}' | /usr/bin/bluetoothctl"
-        subprocess.run(disconnect_command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        time.sleep(1)
+    def generate():
+        commands = []
+        connected_devices = get_connected_devices()
+        for device in connected_devices:
+            commands.append(f"disconnect {device}")
 
-    # Then, turn off agent and power
-    commands = ['agent off', 'power off']
-    for command in commands:
-        process_command = f"echo '{command}' | /usr/bin/bluetoothctl"
-        time.sleep(1)
-        try:
-            result = subprocess.run(process_command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        except subprocess.CalledProcessError as e:
-            return jsonify({'status': 'error', 'message': str(e), 'stderr': e.stderr}), 500
+        # Additional commands for turning off the agent and power
+        commands += ['agent off', 'power off']
+        #print(f"btoff commands={commands}")
+        cmd = ["bluetoothctl"]
+        with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True) as process:
+            try:
+                for command in commands:
+                    # counter to ensure we don't get an infinite output
+                    output_ticks = 0
+                    process.stdin.write(f"{command}\n")
+                    process.stdin.flush()
+                    time.sleep(1)  # Allow time for the command to take effect
 
-    return jsonify({'status': 'success', 'message': 'Bluetooth turned off'}), 200
+                    output = process.stdout.readline()
+                    while output and output_ticks < 5:
+                        #print(f"btoff output {command} ticks={output_ticks}")
+                        yield f"data: btoff {output.strip()}\n\n"
+                        if 'Agent unregistered' in output or 'Changing power off succeeded' in output:
+                            break
+                        output = process.stdout.readline()
+                        output_ticks += 1
+
+                #print('btoff stream_ended')
+                yield 'event: stream_ended\ndata:\n\n'
+                process.stdin.write("exit\n")
+                process.stdin.flush()
+                process.terminate()
+                process.wait()
+
+            except Exception as e:
+                yield f"data: Error - {str(e)}\n\n"
+
+    return Response(stream_with_context(generate()), content_type='text/event-stream')
 
 def create_clickable_links(line):
     clean_line = re.sub(r'\x1B[@-_][0-?]*[ -/]*[@-~]', '', line)  # Strip ANSI codes
@@ -228,10 +285,10 @@ def create_clickable_links(line):
     if match:
         device_id = match.group(1)
         device_name = match.group(2)
-        return f'data: <a href="/bt/connect/{device_id}">{device_id} - {device_name}</a><br>\n\n'
-    return f'data: {clean_line}<br>\n\n'
+        return f'data: btscan <a href="/bt/connect/{device_id}">{device_id} - {device_name}</a><br>\n\n'
+    return f'data: btscan {clean_line}<br>\n\n'
 
-def scan_bluetooth(timeout=20):
+def scan_bluetooth(timeout=30):
     """Start bluetoothctl, turn on scanning, and manage output."""
     cmd = ["bluetoothctl"]
     with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1) as process:
@@ -242,10 +299,11 @@ def scan_bluetooth(timeout=20):
 
         # Stop scan after a timeout
         def stop_scan():
-            time.sleep(timeout)
             process.stdin.write("scan off\n")
             process.stdin.write("exit\n")
             process.stdin.flush()
+            process.terminate()  # Ensure the process is terminated
+            process.wait()       # Wait for the process to terminate
 
         timer = threading.Timer(timeout, stop_scan)
         timer.start()
@@ -254,10 +312,16 @@ def scan_bluetooth(timeout=20):
         try:
             for line in iter(process.stdout.readline, ''):
                 yield create_clickable_links(line.strip())
+                if "org.bluez.Error.NotReady" in line:
+                    break
+            yield 'event: stream_ended\ndata:\n\n'
+        except Exception as e:
+            print(f"Error: {e}")
         finally:
             timer.cancel()
-            process.stdin.write("exit\n")
-            process.stdin.flush()
+            if process.poll() is None:  # Check if process is still running
+                process.terminate()
+                process.wait()
 
 @app.route('/bt/scan', methods=['GET'])
 def bt_scan():
