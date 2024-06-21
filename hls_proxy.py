@@ -253,7 +253,7 @@ def bt_off():
 
         # Additional commands for turning off the agent and power
         commands += ['agent off', 'power off']
-        termination_signals = ['Agent unregistered', 'Changing power off succeeded', 'Successful disconnected']
+        termination_signals = ['Agent unregistered', 'Agent registered', 'Changing power off succeeded', 'Successful disconnected']
 
         cmd = ["bluetoothctl"]
         with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True) as process:
