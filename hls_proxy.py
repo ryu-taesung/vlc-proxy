@@ -111,6 +111,14 @@ def delayed_stop(seconds):
     timer = threading.Timer(seconds, timer_action)
     timer.start()
 
+@app.route('/vlc/status', methods=['GET'])
+def status_vlc():
+    global vlc_process
+    if vlc_process is None:
+        return jsonify({'status': 'VLC not running'}), 200
+    else:
+        return jsonify({'status': 'VLC is playing'}), 200
+
 @app.route('/sleep/<int:minutes>', methods=['GET'])
 def set_sleep_timer(minutes):
     global sleep_set_at, sleep_expires_at
@@ -188,11 +196,11 @@ def bt_status():
            process.stdin.write(f"{commands[0]}\n")
            process.stdin.flush()
            output = process.stdout.readline()
-           output_ticks = 0
-           while output and output_ticks < 10:
-              out_msg += output
+           while output:
+              out_msg = output
+              if 'powered: ' in output.lower():
+                  break
               output = process.stdout.readline()
-              output_ticks += 1
            process.stdin.write("exit\n")
            process.stdin.flush()
         message = "Powered On" if 'powered: yes' in out_msg.lower() else "Powered Off" 

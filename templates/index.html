@@ -50,12 +50,18 @@
         document.addEventListener("DOMContentLoaded", function() {
           fetchVolume();
 
-          document.getElementById("start").addEventListener("click", function() {
-            fetch('/vlc/start').then(response => response.json()).then(data => alert(data.status));
+          document.getElementById("start").addEventListener("click", async () =>  {
+            const resp = await fetch('/vlc/start')
+            const result = await resp.json()
+            document.querySelector("#vlcstatus").innerText = result.status;
+            setTimeout(()=>{updateVLCStatus()}, 3000);
           });
 
-          document.getElementById("stop").addEventListener("click", function() {
-            fetch('/vlc/stop').then(response => response.json()).then(data => alert(data.status));
+          document.getElementById("stop").addEventListener("click", async () => {
+            const resp = await fetch('/vlc/stop')
+            const result = await resp.json()
+            document.querySelector("#vlcstatus").innerText = result.status;
+            setTimeout(()=>{updateVLCStatus()}, 3000);
           });
 
           document.getElementById("volup").addEventListener("click", function() {
@@ -76,6 +82,7 @@
             evn.addEventListener('stream_ended', ()=>{
               console.log('bton stream_ended event');
               evn.close();
+              updateBTStatus();
             });
             evn.onmessage = handleBTStream;
             evn.onerror = function() {
@@ -90,6 +97,7 @@
             evn.addEventListener('stream_ended', ()=>{
               console.log('btoff stream_ended event');
               evn.close();
+              updateBTStatus();
             });
             evn.onmessage = handleBTStream;
             evn.onerror = ()=>{
@@ -244,11 +252,18 @@
           return powered_on;
         };
 
-        const testit = async () => {
+        const updateBTStatus = async () => {
           let powered = await getBTStatus();
-          console.log(powered);
+          document.querySelector("#btstatus").innerText = powered;
         }
-        testit();
+       updateBTStatus();
+
+       const updateVLCStatus = async () => {
+         const resp = await fetch('/vlc/status');
+         const result = await resp.json();
+         document.querySelector('#vlcstatus').innerText = result.status;
+       }
+       updateVLCStatus();
 
     </script>
 </head>
@@ -259,6 +274,8 @@
       <div id="loadAverages"></div>
       <div id="currentVolume">Current Volume: Loading...</div>
     </div>
+    <br>
+    <div id="vlcstatus"></div>
     <div>
         <button id="start">Start VLC</button>
         <button id="stop">Stop VLC</button>
@@ -268,6 +285,7 @@
         <button id="voldown">Volume Down</button>
     </div>
     <br>
+    <div id="btstatus"></div>
     <div>
         <button id="bton">Bluetooth On</button>
         <button id="scanBtn" onclick="toggleScan()">Start Scan</button>
