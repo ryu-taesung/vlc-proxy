@@ -203,12 +203,13 @@ def bt_status():
 @app.route('/bt/on', methods=['GET'])
 def bt_on():
     def generate():
-        commands = ['power on', 'agent on']
-        termination_signals = ['Agent is already registered', 'Changing power on succeeded']
+        commands = {}
+        commands['power on'] = ['Changing power on succeeded']
+        commands['agent on'] =  ['Agent registered','Agent is already registered', 'Agent unregistered']
         cmd = ["bluetoothctl"]
         with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as process:
             try:
-                for command in commands:
+                for command,signals in commands.items():
                     process.stdin.write(f"{command}\n")
                     process.stdin.flush()
                     time.sleep(1)  # Wait for the command to take effect
@@ -218,7 +219,7 @@ def bt_on():
                         output = process.stdout.readline()
                         if output: 
                             yield f"data: bton {output.strip()}\n\n"
-                            if any(signal in output for signal in termination_signals):
+                            if any(signal in output for signal in signals):
                                 break
 
                 yield 'event: stream_ended\ndata:\n\n'
@@ -246,19 +247,20 @@ def get_connected_devices():
 @app.route('/bt/off', methods=['GET'])
 def bt_off():
     def generate():
-        commands = []
+        # Mapping commands to their specific termination signals
+        commands = {}
         connected_devices = get_connected_devices()
         for device in connected_devices:
-            commands.append(f"disconnect {device}")
+            commands[f"disconnect {device}"] = ['Successful disconnected']
 
-        # Additional commands for turning off the agent and power
-        commands += ['agent off', 'power off']
-        termination_signals = ['Agent unregistered', 'Agent registered', 'Changing power off succeeded', 'Successful disconnected']
+        # Specific signals for turning off the agent and power
+        commands['agent off'] = ['Agent registered','Agent unregistered']
+        commands['power off'] = ['Changing power off succeeded']
 
         cmd = ["bluetoothctl"]
         with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True) as process:
             try:
-                for command in commands:
+                for command, signals in commands.items():
                     process.stdin.write(f"{command}\n")
                     process.stdin.flush()
                     time.sleep(1)  # Allow time for the command to take effect
@@ -266,9 +268,9 @@ def bt_off():
                     for output_ticks in range(10):  # Up to 10 attempts to read relevant output
                         output = process.stdout.readline()
                         if output:
-                            # print(f"btoff output {command} ticks={output_ticks} output={output}")
+                            #print(f"btoff output {command} signals={signals} ticks={output_ticks} output={output}")
                             yield f"data: btoff {output.strip()}\n\n"
-                            if any(signal in output for signal in termination_signals):
+                            if any(signal in output for signal in signals):
                                 break
 
                 yield 'event: stream_ended\ndata:\n\n'
