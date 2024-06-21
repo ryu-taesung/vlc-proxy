@@ -204,25 +204,31 @@ def bt_status():
 def bt_on():
     def generate():
         commands = ['power on', 'agent on']
+        termination_signals = ['Agent is already registered', 'Changing power on succeeded']
         cmd = ["bluetoothctl"]
         with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as process:
-            for command in commands:
-                output_ticks = 0
-                process.stdin.write(f"{command}\n")
-                process.stdin.flush()
-                time.sleep(1)  # Wait for the command to take effect
+            try:
+                for command in commands:
+                    process.stdin.write(f"{command}\n")
+                    process.stdin.flush()
+                    time.sleep(1)  # Wait for the command to take effect
 
-                output = process.stdout.readline()
-                while output and output_ticks < 5:
-                    yield f"data: bton {output.strip()}\n\n"
-                    if "Agent is already registered" in output:
-                      break
                     output = process.stdout.readline()
-                    output_ticks += 1
+                    for output_ticks in range(10):
+                        output = process.stdout.readline()
+                        if output: 
+                            yield f"data: bton {output.strip()}\n\n"
+                            if any(signal in output for signal in termination_signals):
+                                break
 
-            yield 'event: stream_ended\ndata:\n\n'
-            process.stdin.write("exit\n")
-            process.stdin.flush()
+                yield 'event: stream_ended\ndata:\n\n'
+                process.stdin.write("exit\n")
+                process.stdin.flush()
+                process.terminate()
+                process.wait()
+
+            except Exception as e:
+                yield f"data: Error - {str(e)}\n\n"
 
     return Response(stream_with_context(generate()), content_type='text/event-stream')
 
@@ -247,27 +253,24 @@ def bt_off():
 
         # Additional commands for turning off the agent and power
         commands += ['agent off', 'power off']
-        #print(f"btoff commands={commands}")
+        termination_signals = ['Agent unregistered', 'Changing power off succeeded', 'Successful disconnected']
+
         cmd = ["bluetoothctl"]
         with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True) as process:
             try:
                 for command in commands:
-                    # counter to ensure we don't get an infinite output
-                    output_ticks = 0
                     process.stdin.write(f"{command}\n")
                     process.stdin.flush()
                     time.sleep(1)  # Allow time for the command to take effect
 
-                    output = process.stdout.readline()
-                    while output and output_ticks < 5:
-                        #print(f"btoff output {command} ticks={output_ticks}")
-                        yield f"data: btoff {output.strip()}\n\n"
-                        if 'Agent unregistered' in output or 'Changing power off succeeded' in output:
-                            break
+                    for output_ticks in range(10):  # Up to 10 attempts to read relevant output
                         output = process.stdout.readline()
-                        output_ticks += 1
+                        if output:
+                            # print(f"btoff output {command} ticks={output_ticks} output={output}")
+                            yield f"data: btoff {output.strip()}\n\n"
+                            if any(signal in output for signal in termination_signals):
+                                break
 
-                #print('btoff stream_ended')
                 yield 'event: stream_ended\ndata:\n\n'
                 process.stdin.write("exit\n")
                 process.stdin.flush()
@@ -277,7 +280,7 @@ def bt_off():
             except Exception as e:
                 yield f"data: Error - {str(e)}\n\n"
 
-    return Response(stream_with_context(generate()), content_type='text/event-stream')
+    return Response(generate(), mimetype='text/event-stream')
 
 def create_clickable_links(line):
     clean_line = re.sub(r'\x1B[@-_][0-?]*[ -/]*[@-~]', '', line)  # Strip ANSI codes

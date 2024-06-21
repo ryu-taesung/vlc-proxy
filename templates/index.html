@@ -59,24 +59,17 @@
 
           document.getElementById("volup").addEventListener("click", function() {
             fetch('/alsa/volup').then(response => response.json()).then(data => {
-              //alert(data.status);
               fetchVolume();  // Update volume display after change
             });
           });
 
           document.getElementById("voldown").addEventListener("click", function() {
             fetch('/alsa/voldown').then(response => response.json()).then(data => {
-              //alert(data.status);
               fetchVolume();  // Update volume display after change
             });
           });
 
           document.getElementById("bton").addEventListener("click", function() {
-            //fetch('/bt/on').then(response => response.json()).then(data => {
-            //outputDiv = document.querySelector("#output");
-            //outputDiv.innerText += stripAnsiControlCodes(data.message) + '\n';
-            //outputDiv.scrollTop = outputDiv.scrollHeight;
-            //});
             //stopScan();
             let evn = new EventSource("/bt/on");
             evn.addEventListener('stream_ended', ()=>{
@@ -91,11 +84,6 @@
           });
 
           document.getElementById("btoff").addEventListener("click", function() {
-//            fetch('/bt/off').then(response => response.json()).then(data => {
-//            outputDiv = document.querySelector("#output");
-//            outputDiv.innerText += stripAnsiControlCodes(data.message) + '\n';
-//            outputDiv.scrollTop = outputDiv.scrollHeight;
-//            });
             //stopScan();
             let evn = new EventSource("/bt/off");
             evn.addEventListener('stream_ended', ()=>{
@@ -106,13 +94,6 @@
             evn.onerror = ()=>{
               console.log('onerror event');
             };
-            //setTimeout(()=>{
-            //  console.log('timeout');
-            //  if(evn){
-            //    evn.close();
-            //    console.log('closed event');
-            //  }
-            //}, 10000);
           });
           document.getElementById("shutdown").addEventListener('click', ()=>{
             const token = 'SHUTDOWN';
