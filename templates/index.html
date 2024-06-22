@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ hostname }} - VLC Control</title>
-    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <link rel="icon" type="image/png" href="/static/favicon_nocolor.png">
     <style>
         body {
             background-color: #000;
@@ -49,6 +49,16 @@
           const outputDiv = document.getElementById('output');
           outputDiv.innerHTML += stripAnsiControlCodes(event.data) + '<br>';
           outputDiv.scrollTop = outputDiv.scrollHeight;
+        }
+
+        function changeFavicon(src) {
+            let link = document.querySelector("link[rel~='icon']");
+            if (!link) {
+                link = document.createElement('link');
+                link.rel = 'icon';
+                document.getElementsByTagName('head')[0].appendChild(link);
+            }
+            link.href = src;
         }
         
         document.addEventListener("DOMContentLoaded", function() {
@@ -274,8 +284,10 @@
          document.querySelector('#vlcstatus').innerText = result.status;
          if(result.status.toLowerCase().indexOf('playing') > -1){
            document.querySelector('#favicon').src = '/static/favicon.png';
+           changeFavicon('/static/favicon.png');
          } else {
            document.querySelector('#favicon').src = '/static/favicon_nocolor.png';
+           changeFavicon('/static/favicon_nocolor.png');
          }
        }
        updateVLCStatus();
