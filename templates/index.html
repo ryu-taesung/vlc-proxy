@@ -58,14 +58,20 @@
             const resp = await fetch('/vlc/start')
             const result = await resp.json()
             document.querySelector("#vlcstatus").innerText = result.status;
-            setTimeout(()=>{updateVLCStatus()}, 3000);
+            setTimeout(()=>{
+              updateVLCStatus();
+              fetchVolume();
+            }, 3000);
           });
 
           document.getElementById("stop").addEventListener("click", async () => {
             const resp = await fetch('/vlc/stop')
             const result = await resp.json()
             document.querySelector("#vlcstatus").innerText = result.status;
-            setTimeout(()=>{updateVLCStatus()}, 3000);
+            setTimeout(()=>{
+              updateVLCStatus();
+              fetchVolume();
+            }, 3000);
           });
 
           document.getElementById("volup").addEventListener("click", function() {
