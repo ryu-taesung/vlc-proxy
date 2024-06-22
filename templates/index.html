@@ -238,6 +238,19 @@
             }
         }
 
+        const updateVLCStatus = async () => {
+          const resp = await fetch('/vlc/status');
+          const result = await resp.json();
+          document.querySelector('#vlcstatus').innerText = result.status;
+          if(result.status.toLowerCase().indexOf('playing') > -1){
+            document.querySelector('#favicon').src = '/static/favicon.png';
+            changeFavicon('/static/favicon.png');
+          } else {
+            document.querySelector('#favicon').src = '/static/favicon_nocolor.png';
+            changeFavicon('/static/favicon_nocolor.png');
+          }
+        }
+
         function fetchLoadAverages() {
           fetch('/system/lavg')
             .then(response => response.json())
@@ -253,8 +266,9 @@
               });
         }
 
+        setInterval(updateVLCStatus, 10000);
         setInterval(fetchLoadAverages, 10000);
-
+        updateVLCStatus();
         fetchLoadAverages();
 
         const updateTitle = async () => {
@@ -276,22 +290,8 @@
           let powered = await getBTStatus();
           document.querySelector("#btstatus").innerText = powered;
         }
-       updateBTStatus();
 
-       const updateVLCStatus = async () => {
-         const resp = await fetch('/vlc/status');
-         const result = await resp.json();
-         document.querySelector('#vlcstatus').innerText = result.status;
-         if(result.status.toLowerCase().indexOf('playing') > -1){
-           document.querySelector('#favicon').src = '/static/favicon.png';
-           changeFavicon('/static/favicon.png');
-         } else {
-           document.querySelector('#favicon').src = '/static/favicon_nocolor.png';
-           changeFavicon('/static/favicon_nocolor.png');
-         }
-       }
-       updateVLCStatus();
-       setInterval(updateVLCStatus, 30000);
+       updateBTStatus();
     </script>
 </head>
 <body>
