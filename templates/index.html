@@ -262,13 +262,18 @@
          const resp = await fetch('/vlc/status');
          const result = await resp.json();
          document.querySelector('#vlcstatus').innerText = result.status;
+         if(result.status.toLowerCase().indexOf('playing') > -1){
+           document.querySelector('#favicon').src = '/static/favicon.png';
+         } else {
+           document.querySelector('#favicon').src = '/static/favicon_nocolor.png';
+         }
        }
        updateVLCStatus();
-
+       setInterval(updateVLCStatus, 30000);
     </script>
 </head>
 <body>
-    <h1>{{ hostname }} - VLC Control</h1>
+    <h1><img id="favicon" width=64>{{ hostname }} - VLC Control</h1>
     <div id="systemInfo">
       <div id="windowTitle"></div>
       <div id="loadAverages"></div>
