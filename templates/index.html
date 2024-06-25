@@ -242,9 +242,21 @@
           const resp = await fetch('/vlc/status');
           const result = await resp.json();
           document.querySelector('#vlcstatus').innerText = result.status;
-          if(result.status.toLowerCase().indexOf('playing') > -1){
+          const sleep_res = await fetch('/sleep');
+          const sleep_data = await sleep_res.json();
+          let sleep_scheduled = false;
+          //not the most elegant way to handle this--needs refactored
+          if(Array.isArray(sleep_data) && sleep_data[0] == 'no sleep'){
+            //console.log('no sleep set');
+          } else {
+            sleep_scheduled = true;
+          }
+          if(result.status.toLowerCase().indexOf('playing') > -1 && !sleep_scheduled){
             document.querySelector('#favicon').src = '/static/favicon.png';
             changeFavicon('/static/favicon.png');
+          } else if (result.status.toLowerCase().indexOf('playing') > -1 && sleep_scheduled){
+            document.querySelector('#favicon').src = '/static/favicon_red.png';
+            changeFavicon('/static/favicon_red.png');
           } else {
             document.querySelector('#favicon').src = '/static/favicon_nocolor.png';
             changeFavicon('/static/favicon_nocolor.png');
