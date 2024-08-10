@@ -1,14 +1,27 @@
-import vlc
-import time
-import requests
-import os
-from flask import Flask, request, Response, jsonify, send_from_directory, stream_with_context
-from flask import render_template
-import subprocess
-import signal
 import asyncio
+import os
 import re
+import signal
+import subprocess
 import threading
+import time
+
+import requests
+import vlc
+from flask import (Flask, Response, jsonify, render_template, request,
+                   send_from_directory, stream_with_context)
+
+from LookupUtils.StreamLookup import fetch_data_from_endpoint
+
+if os.environ.get('stream_source') is not None:
+    stream_source = os.environ.get('stream_source')
+else:
+    lookup_url = os.environ.get('stream_lookup')
+    data = fetch_data_from_endpoint(lookup_url)
+    if data:
+        stream_source = f"https://{data['ccip']}:{data['port']}"
+    else:
+        raise RuntimeError("Stream lookup failed!")
 
 def sigchld_handler(signum, frame):
     global vlc_process
@@ -27,9 +40,9 @@ signal.signal(signal.SIGCHLD, sigchld_handler)
 
 # Flask configuration
 class Config:
-    SERVER_SOURCE = os.environ.get('stream_source')
-    LOGIN_URL = f'{SERVER_SOURCE}/login'
-    STREAM_USER = os.environ.get('stream_user')
+    SERVER_SOURCE   = stream_source
+    LOGIN_URL       = f'{SERVER_SOURCE}/login'
+    STREAM_USER     = os.environ.get('stream_user')
     STREAM_PASSWORD = os.environ.get('stream_password')
 
 app = Flask(__name__)
@@ -37,7 +50,12 @@ app.config.from_object(Config)
 
 # Start a session
 session = requests.Session()
-response = session.post(app.config['LOGIN_URL'], data={'user': app.config['STREAM_USER'], 'password': app.config['STREAM_PASSWORD']}, verify=False)
+response = session.post(
+    app.config['LOGIN_URL'],
+    data={
+        'user': app.config['STREAM_USER'],
+        'password': app.config['STREAM_PASSWORD']},
+    verify=False)
 
 # Check if login was successful
 if response.ok:

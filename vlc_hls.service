@@ -7,7 +7,9 @@ User=rts
 Group=rts
 Type=forking
 Environment="PYTHONWARNINGS=ignore:Unverified HTTPS request"
-Environment="stream_source=http://ip.address:port/"
+Environment="stream_lookup=http://ip.address:port/"
+# The below takes precedence for manual setting:
+# Environment="stream_source=http://ip.address:port/"
 Environment="stream_user=username"
 Environment="stream_password=password"
 Environment="DISPLAY=:0.0"
